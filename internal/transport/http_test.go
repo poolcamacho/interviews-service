@@ -6,42 +6,102 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/poolcamacho/auth-service/internal/domain"
-	"github.com/poolcamacho/auth-service/internal/service"
+	"github.com/poolcamacho/interviews-service/internal/domain"
+	"github.com/poolcamacho/interviews-service/internal/service"
 	"github.com/stretchr/testify/assert"
-	_ "github.com/stretchr/testify/mock"
 )
 
-func TestRegister(t *testing.T) {
+func TestHealthCheck(t *testing.T) {
 	// Setup
-	mockAuthService := new(service.MockAuthService)
-	authHandler := NewAuthHandler(mockAuthService)
+	mockInterviewService := new(service.MockInterviewService)
+	interviewHandler := NewInterviewHandler(mockInterviewService)
 
 	gin.SetMode(gin.TestMode)
 	router := gin.Default()
-	router.POST("/register", authHandler.Register)
+	router.GET("/health", interviewHandler.HealthCheck)
 
-	// Test data
-	requestBody := domain.RegisterRequest{
-		Username: "testuser",
-		Email:    "test@example.com",
-		Password: "password123",
-	}
-	user := &domain.User{
-		Username:     requestBody.Username,
-		Email:        requestBody.Email,
-		Role:         "user",
-		PasswordHash: requestBody.Password,
+	// Prepare HTTP request
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	rec := httptest.NewRecorder()
+
+	// Execute
+	router.ServeHTTP(rec, req)
+
+	// Assertions
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.JSONEq(t, `{"status":"healthy"}`, rec.Body.String())
+}
+
+func TestGetInterviews(t *testing.T) {
+	// Setup
+	mockInterviewService := new(service.MockInterviewService)
+	interviewHandler := NewInterviewHandler(mockInterviewService)
+
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.GET("/interviews", interviewHandler.GetInterviews)
+
+	// Mock data
+	interviews := []*domain.Interview{
+		{
+			ID:            1,
+			CandidateID:   101,
+			JobID:         201,
+			InterviewDate: time.Date(2024, time.December, 30, 14, 0, 0, 0, time.UTC),
+			Feedback:      "Excellent performance",
+		},
+		{
+			ID:            2,
+			CandidateID:   102,
+			JobID:         202,
+			InterviewDate: time.Date(2024, time.December, 31, 15, 0, 0, 0, time.UTC),
+			Feedback:      "Needs improvement",
+		},
 	}
 
 	// Mock behavior
-	mockAuthService.On("Register", user).Return(nil)
+	mockInterviewService.On("GetAllInterviews").Return(interviews, nil)
 
 	// Prepare HTTP request
-	body, _ := json.Marshal(requestBody)
-	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewBuffer(body))
+	req := httptest.NewRequest(http.MethodGet, "/interviews", nil)
+	rec := httptest.NewRecorder()
+
+	// Execute
+	router.ServeHTTP(rec, req)
+
+	// Assertions
+	assert.Equal(t, http.StatusOK, rec.Code)
+	responseBody, _ := json.Marshal(interviews)
+	assert.JSONEq(t, string(responseBody), rec.Body.String())
+	mockInterviewService.AssertExpectations(t)
+}
+
+func TestCreateInterview(t *testing.T) {
+	// Setup
+	mockInterviewService := new(service.MockInterviewService)
+	interviewHandler := NewInterviewHandler(mockInterviewService)
+
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.POST("/interviews", interviewHandler.CreateInterview)
+
+	// Mock data
+	newInterview := &domain.Interview{
+		CandidateID:   101,
+		JobID:         201,
+		InterviewDate: time.Date(2024, time.December, 30, 14, 0, 0, 0, time.UTC),
+		Feedback:      "Good candidate",
+	}
+
+	// Mock behavior
+	mockInterviewService.On("AddInterview", newInterview).Return(nil)
+
+	// Prepare HTTP request
+	body, _ := json.Marshal(newInterview)
+	req := httptest.NewRequest(http.MethodPost, "/interviews", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
@@ -50,32 +110,24 @@ func TestRegister(t *testing.T) {
 
 	// Assertions
 	assert.Equal(t, http.StatusCreated, rec.Code)
-	assert.JSONEq(t, `{"message":"user registered successfully"}`, rec.Body.String())
-	mockAuthService.AssertExpectations(t)
+	assert.JSONEq(t, `{"message":"interview created successfully"}`, rec.Body.String())
+	mockInterviewService.AssertExpectations(t)
 }
 
-func TestLogin(t *testing.T) {
+func TestCreateInterview_BadRequest(t *testing.T) {
 	// Setup
-	mockAuthService := new(service.MockAuthService)
-	authHandler := NewAuthHandler(mockAuthService)
+	mockInterviewService := new(service.MockInterviewService)
+	interviewHandler := NewInterviewHandler(mockInterviewService)
 
 	gin.SetMode(gin.TestMode)
 	router := gin.Default()
-	router.POST("/login", authHandler.Login)
+	router.POST("/interviews", interviewHandler.CreateInterview)
 
-	// Test data
-	requestBody := map[string]string{
-		"email":    "test@example.com",
-		"password": "password123",
-	}
-	expectedToken := "mocked_jwt_token"
-
-	// Mock behavior
-	mockAuthService.On("Login", "test@example.com", "password123").Return(expectedToken, nil)
+	// Invalid request body (missing required fields)
+	invalidBody := `{"candidate_id": 0, "job_id": 0, "feedback": ""}`
 
 	// Prepare HTTP request
-	body, _ := json.Marshal(requestBody)
-	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewBuffer(body))
+	req := httptest.NewRequest(http.MethodPost, "/interviews", bytes.NewBufferString(invalidBody))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
@@ -83,40 +135,9 @@ func TestLogin(t *testing.T) {
 	router.ServeHTTP(rec, req)
 
 	// Assertions
-	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.JSONEq(t, `{"message":"login successful", "token":"mocked_jwt_token"}`, rec.Body.String())
-	mockAuthService.AssertExpectations(t)
-}
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), "error") // Check if the response contains an error message
 
-func TestLogin_InvalidCredentials(t *testing.T) {
-	// Setup
-	mockAuthService := new(service.MockAuthService)
-	authHandler := NewAuthHandler(mockAuthService)
-
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/login", authHandler.Login)
-
-	// Test data
-	requestBody := map[string]string{
-		"email":    "wrong@example.com",
-		"password": "wrongpassword",
-	}
-
-	// Mock behavior
-	mockAuthService.On("Login", "wrong@example.com", "wrongpassword").Return("", service.ErrInvalidCredentials)
-
-	// Prepare HTTP request
-	body, _ := json.Marshal(requestBody)
-	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-
-	// Execute
-	router.ServeHTTP(rec, req)
-
-	// Assertions
-	assert.Equal(t, http.StatusUnauthorized, rec.Code)
-	assert.JSONEq(t, `{"error":"invalid credentials"}`, rec.Body.String())
-	mockAuthService.AssertExpectations(t)
+	// Ensure the service method is NOT called
+	mockInterviewService.AssertNotCalled(t, "AddInterview")
 }

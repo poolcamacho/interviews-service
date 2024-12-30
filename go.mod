@@ -1,4 +1,4 @@
-module github.com/poolcamacho/auth-service
+module github.com/poolcamacho/interviews-service
 
 go 1.23.2
 

@@ -26,7 +26,7 @@ const docTemplate = `{
     "paths": {
         "/health": {
             "get": {
-                "description": "Returns the health status of the authentication service",
+                "description": "Returns the health status of the interview service",
                 "produces": [
                     "application/json"
                 ],
@@ -47,51 +47,28 @@ const docTemplate = `{
                 }
             }
         },
-        "/login": {
-            "post": {
-                "description": "Authenticate a user using email and password",
-                "consumes": [
-                    "application/json"
-                ],
+        "/interviews": {
+            "get": {
+                "description": "Retrieve a list of all interviews in the system",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Authentication"
+                    "Interviews"
                 ],
-                "summary": "Login a user",
-                "parameters": [
-                    {
-                        "description": "User Login Request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.LoginRequest"
-                        }
-                    }
-                ],
+                "summary": "Get all interviews",
                 "responses": {
                     "200": {
-                        "description": "Login successful with JWT token",
+                        "description": "List of interviews",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.Interview"
                             }
                         }
                     },
-                    "400": {
-                        "description": "Bad request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Invalid credentials",
+                    "500": {
+                        "description": "Failed to fetch interviews",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -100,11 +77,9 @@ const docTemplate = `{
                         }
                     }
                 }
-            }
-        },
-        "/register": {
+            },
             "post": {
-                "description": "Register a new user by providing username, email, and password",
+                "description": "Add a new interview by providing candidate_id, job_id, interview_date, and feedback",
                 "consumes": [
                     "application/json"
                 ],
@@ -112,23 +87,23 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Authentication"
+                    "Interviews"
                 ],
-                "summary": "Register a new user",
+                "summary": "Create a new interview",
                 "parameters": [
                     {
-                        "description": "User Registration Request",
+                        "description": "Interview Creation Request",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.RegisterRequest"
+                            "$ref": "#/definitions/domain.Interview"
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "User registered successfully",
+                        "description": "Interview created successfully",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -146,7 +121,7 @@ const docTemplate = `{
                         }
                     },
                     "500": {
-                        "description": "Internal server error",
+                        "description": "Failed to create interview",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -159,32 +134,28 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "domain.LoginRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "password"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                }
-            }
-        },
-        "domain.RegisterRequest": {
+        "domain.Interview": {
             "type": "object",
             "properties": {
-                "email": {
+                "candidate_id": {
+                    "description": "Foreign key referencing the candidate's ID",
+                    "type": "integer"
+                },
+                "feedback": {
+                    "description": "Feedback or notes about the interview",
                     "type": "string"
                 },
-                "password": {
+                "id": {
+                    "description": "Unique identifier for the interview",
+                    "type": "integer"
+                },
+                "interview_date": {
+                    "description": "Date and time of the interview",
                     "type": "string"
                 },
-                "username": {
-                    "type": "string"
+                "job_id": {
+                    "description": "Foreign key referencing the job's ID",
+                    "type": "integer"
                 }
             }
         }
@@ -197,8 +168,8 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "localhost:8080",
 	BasePath:         "/",
 	Schemes:          []string{},
-	Title:            "Auth Service API",
-	Description:      "API for user authentication and management.",
+	Title:            "Interview Service API",
+	Description:      "API for managing interviews in the system.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

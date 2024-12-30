@@ -1,92 +1,84 @@
 package transport
 
 import (
-	"github.com/poolcamacho/auth-service/internal/domain"
-	"github.com/poolcamacho/auth-service/internal/service"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/poolcamacho/interviews-service/internal/domain"
+	"github.com/poolcamacho/interviews-service/internal/service"
 )
 
-// AuthHandler handles HTTP requests for authentication
-type AuthHandler struct {
-	authService service.AuthService
+// InterviewHandler handles HTTP requests for interviews
+type InterviewHandler struct {
+	service service.InterviewService
 }
 
-// NewAuthHandler creates a new AuthHandler instance
-func NewAuthHandler(authService service.AuthService) *AuthHandler {
-	return &AuthHandler{authService: authService}
+// NewInterviewHandler creates a new InterviewHandler instance
+// @Summary Initialize the interview handler
+// @Description Creates an instance of InterviewHandler to manage interview endpoints
+// @Tags Initialization
+// @Produce json
+func NewInterviewHandler(service service.InterviewService) *InterviewHandler {
+	return &InterviewHandler{service: service}
 }
 
 // HealthCheck provides a simple health status of the service
 // @Summary Check service health
-// @Description Returns the health status of the authentication service
+// @Description Returns the health status of the interview service
 // @Tags Health
 // @Produce json
 // @Success 200 {object} map[string]string "Service is healthy"
 // @Router /health [get]
-func (h *AuthHandler) HealthCheck(c *gin.Context) {
+func (h *InterviewHandler) HealthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "healthy"})
 }
 
-// Register handles the registration of a new user
-// @Summary Register a new user
-// @Description Register a new user by providing username, email, and password
-// @Tags Authentication
-// @Accept json
+// GetInterviews handles the retrieval of all interviews
+// @Summary Get all interviews
+// @Description Retrieve a list of all interviews in the system
+// @Tags Interviews
 // @Produce json
-// @Param request body domain.RegisterRequest true "User Registration Request"
-// @Success 201 {object} map[string]string "User registered successfully"
-// @Failure 400 {object} map[string]string "Bad request"
-// @Failure 500 {object} map[string]string "Internal server error"
-// @Router /register [post]
-func (h *AuthHandler) Register(c *gin.Context) {
-	var req domain.RegisterRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+// @Success 200 {array} domain.Interview "List of interviews"
+// @Failure 500 {object} map[string]string "Failed to fetch interviews"
+// @Router /interviews [get]
+func (h *InterviewHandler) GetInterviews(c *gin.Context) {
+	interviews, err := h.service.GetAllInterviews()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch interviews"})
 		return
 	}
-
-	// Map RegisterRequest to User
-	user := &domain.User{
-		Username:     req.Username,
-		Email:        req.Email,
-		Role:         "user",       // Default role
-		PasswordHash: req.Password, // Pass the plain-text password for hashing in the service
-	}
-
-	// Delegate the registration process to the service
-	if err := h.authService.Register(user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to register user"})
-		return
-	}
-
-	c.JSON(http.StatusCreated, gin.H{"message": "user registered successfully"})
+	c.JSON(http.StatusOK, interviews)
 }
 
-// Login handles user authentication and token generation
-// @Summary Login a user
-// @Description Authenticate a user using email and password
-// @Tags Authentication
+// CreateInterview handles the creation of a new interview
+// @Summary Create a new interview
+// @Description Add a new interview by providing candidate_id, job_id, interview_date, and feedback
+// @Tags Interviews
 // @Accept json
 // @Produce json
-// @Param request body domain.LoginRequest true "User Login Request"
-// @Success 200 {object} map[string]string "Login successful with JWT token"
+// @Param request body domain.Interview true "Interview Creation Request"
+// @Success 201 {object} map[string]string "Interview created successfully"
 // @Failure 400 {object} map[string]string "Bad request"
-// @Failure 401 {object} map[string]string "Invalid credentials"
-// @Router /login [post]
-func (h *AuthHandler) Login(c *gin.Context) {
-	var credentials domain.LoginRequest
-	if err := c.ShouldBindJSON(&credentials); err != nil {
+// @Failure 500 {object} map[string]string "Failed to create interview"
+// @Router /interviews [post]
+func (h *InterviewHandler) CreateInterview(c *gin.Context) {
+	var interview domain.Interview
+	if err := c.ShouldBindJSON(&interview); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	user, err := h.authService.Login(credentials.Email, credentials.Password)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+	// Validate required fields
+	if interview.CandidateID == 0 || interview.JobID == 0 || interview.InterviewDate.IsZero() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "candidate_id, job_id, and interview_date are required"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "login successful", "token": user})
+	// Call the service to add the interview
+	if err := h.service.AddInterview(&interview); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create interview"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "interview created successfully"})
 }

@@ -13,7 +13,7 @@ RUN go mod download && go mod verify
 COPY . .
 
 # Compila el binario para linux/amd64
-RUN GOOS=linux GOARCH=amd64 go build -v -o auth-service ./cmd/main.go
+RUN GOOS=linux GOARCH=amd64 go build -v -o interviews-service ./cmd/main.go
 
 # Etapa final (imagen más ligera)
 FROM debian:bookworm
@@ -22,10 +22,10 @@ FROM debian:bookworm
 WORKDIR /usr/local/bin
 
 # Copia el binario generado desde la etapa anterior
-COPY --from=builder /usr/src/app/auth-service /usr/local/bin/auth-service
+COPY --from=builder /usr/src/app/interviews-service /usr/local/bin/interviews-service
 
 # Exponer el puerto utilizado por la aplicación
 EXPOSE 8080
 
 # Define el comando por defecto
-CMD ["auth-service"]
+CMD ["interviews-service"]

@@ -1,12 +1,13 @@
 
-# Auth Service
+# Interviews Service
 
-**Auth Service** es un servicio de autenticación construido en Go, que incluye funcionalidades como registro de usuarios, inicio de sesión con JWT y un endpoint para verificar el estado del servicio.
+**Interviews Service** es un servicio desarrollado en Go que permite gestionar entrevistas para candidatos y empleos.
+Incluye endpoints para crear entrevistas, listar todas las entrevistas y verificar el estado del servicio.
 
 ## Estructura del Proyecto
 
 ```plaintext
-auth-service/
+interviews-service/
 ├── .github/              # Configuración para GitHub Actions
 ├── cmd/
 │   └── main.go           # Punto de entrada principal de la aplicación
@@ -19,9 +20,8 @@ auth-service/
 ├── pkg/
 │   ├── config/           # Configuración de la aplicación
 │   ├── db/               # Conexión a la base de datos
-│   ├── jwt/              # Utilidades para manejo de JWT
 │   ├── logger/           # Configuración de logging
-│   └── utils/            # Funciones utilitarias (e.g., hashing de contraseñas)
+│   └── utils/            # Funciones utilitarias
 ├── .env                  # Variables de entorno (no incluir en producción)
 ├── .gitignore            # Archivos y carpetas ignoradas por Git
 ├── coverage.out          # Archivo de cobertura de pruebas
@@ -45,8 +45,8 @@ auth-service/
 ### 1. Clonar el repositorio
 
 ```bash
-git clone https://github.com/poolcamacho/auth-service.git
-cd auth-service
+git clone https://github.com/poolcamacho/interviews-service.git
+cd interviews-service
 ```
 
 ### 2. Configurar las variables de entorno
@@ -92,13 +92,13 @@ Esto generará un archivo `coverage.out` con la cobertura de pruebas.
 ### 1. Construir la imagen de Docker
 
 ```bash
-docker build -t auth-service .
+docker build -t interviews-service .
 ```
 
 ### 2. Ejecutar el contenedor
 
 ```bash
-docker run -d --name auth-service   -e DATABASE_URL=admin_db:password@tcp(localhost:3306)/auth_service_db   -e JWT_SECRET_KEY=tu-secreto-jwt   -p 3000:3000 auth-service
+docker run -d --name interviews-service   -e DATABASE_URL=admin_db:password@tcp(localhost:3306)/auth_service_db   -e JWT_SECRET_KEY=tu-secreto-jwt   -p 3000:3000 interviews-service
 ```
 
 El servicio estará disponible en `http://localhost:3000`.
@@ -123,19 +123,20 @@ El servicio estará disponible en `http://localhost:3000`.
 
 ---
 
-### 2. **Registro de Usuario**
+### 2. **Registro de Entrevista**
 
-**Descripción**: Registra un nuevo usuario.
+**Descripción**: Crea una nueva entrevista.
 
-**Endpoint**: `POST /register`
+**Endpoint**: `POST /interviews`
 
 **Cuerpo de la Solicitud**:
 
 ```json
 {
-  "username": "testuser",
-  "email": "testuser@example.com",
-  "password": "password123"
+  "candidate_id": 101,
+  "job_id": 202,
+  "interview_date": "2024-12-30T15:00:00Z",
+  "feedback": "Good technical skills."
 }
 ```
 
@@ -143,33 +144,7 @@ El servicio estará disponible en `http://localhost:3000`.
 
 ```json
 {
-  "message": "user registered successfully"
-}
-```
-
----
-
-### 3. **Inicio de Sesión**
-
-**Descripción**: Autentica un usuario y genera un token JWT.
-
-**Endpoint**: `POST /login`
-
-**Cuerpo de la Solicitud**:
-
-```json
-{
-  "email": "testuser@example.com",
-  "password": "password123"
-}
-```
-
-**Ejemplo de Respuesta Exitosa**:
-
-```json
-{
-  "message": "login successful",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "message": "interview created successfully"
 }
 ```
 
@@ -177,9 +152,30 @@ El servicio estará disponible en `http://localhost:3000`.
 
 ```json
 {
-  "error": "invalid credentials"
+  "error": "candidate_id, job_id, and interview_date are required"
 }
 ```
 
+---
+
+### 3. **Listar Entrevistas**
+
+**Descripción**: Obtiene una lista de todas las entrevistas.
+
+**Endpoint**: `GET /interviews`
+
+**Ejemplo de Respuesta Exitosa**:
+
+```json
+[
+  {
+    "id": 1,
+    "candidate_id": 101,
+    "job_id": 202,
+    "interview_date": "2024-12-30T15:00:00Z",
+    "feedback": "Good technical skills."
+  }
+]
+```
 ---
 
